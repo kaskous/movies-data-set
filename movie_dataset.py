@@ -1,31 +1,70 @@
 import pandas as pd
 import logging
 from typing import List
+from movie import Movie
+
 
 class MovieDataset:
-    def __init__(self, csv_file: str):
+    def __init__(self, file_path: str):
         """
         Initialize the MovieDataset with a CSV file.
 
-        :param csv_file: Path to the CSV file containing movie data.
+        :param file_path: Path to the CSV file containing movie data.
         """
-        self.csv_file = csv_file
-        self.df = None
-        self.load_data()
+        self.file_path = file_path
+        self.df = self.load_data()
 
-    def load_data(self):
+    def load_data(self) -> pd.DataFrame:
         """
-        Load the dataset from a CSV file into a pandas DataFrame.
+        Load data from the CSV file.
+
+        :return: DataFrame containing movie data.
         """
+        logging.info(f"Loading data from {self.file_path}")
         try:
-            self.df = pd.read_csv(self.csv_file)
-            logging.info("Data loaded successfully from %s", self.csv_file)
+            df = pd.read_csv(self.file_path)
+            logging.info("Data loaded successfully")
+            return df
         except FileNotFoundError:
-            logging.error("File %s not found.", self.csv_file)
+            logging.error(f"File {self.file_path} not found.")
             raise
-        except Exception as e:
-            logging.error("Error loading data: %s", e)
-            raise
+
+    def _row_to_movie(self, row: pd.Series) -> Movie:
+        """
+        Convert a row from the DataFrame to a Movie object.
+
+        :param row: A row of the DataFrame.
+        :return: A Movie object.
+        """
+        return Movie(
+            title=str(row["title"]),
+            release_date=str(row["release_date"]),
+            vote_average=float(row["vote_average"]),
+            genres=self._parse_genres(str(row["genres"])),
+            overview=str(row["overview"]),
+        )
+
+    def _parse_genres(self, genres_str: str) -> List[str]:
+        """
+        Parse the genres string into a list of genre names.
+
+        :param genres_str: A string representation of the genres.
+        :return: A list of genre names.
+        """
+        genres_list = eval(genres_str)
+        return (
+            [genre["name"] for genre in genres_list]
+            if isinstance(genres_list, list)
+            else []
+        )
+    
+    def get_average_rating(self) -> float:
+        """
+        Return the average rating of all movies.
+
+        :return: Average rating as a float.
+        """
+        return self.df["vote_average"].mean()
 
     def get_unique_movies_count(self) -> int:
         """
@@ -33,24 +72,22 @@ class MovieDataset:
 
         :return: Number of unique movie titles.
         """
-        return self.df['title'].nunique()
+        return self.df["title"].nunique()
 
-    def get_average_rating(self) -> float:
-        """
-        Return the average rating of all movies.
-
-        :return: Average rating as a float.
-        """
-        return self.df['vote_average'].mean()
-
-    def get_top_rated_movies(self, top_n: int = 5) -> pd.DataFrame:
+    def get_top_rated_movies(self, top_n: int = 5) -> List[Movie]:
         """
         Return the top N highest rated movies.
 
         :param top_n: Number of top rated movies to return. Default is 5.
-        :return: DataFrame containing the top N highest rated movies.
+        :return: A list of top N highest rated Movie objects.
         """
-        return self.df[['id','title', 'vote_average']].sort_values(by='vote_average', ascending=False).head(top_n)
+        sorted_df = self.df[["title", "vote_average"]].sort_values(
+            by="vote_average", ascending=False
+        )
+        top_rated_df = sorted_df.head(top_n)
+        merged_df = top_rated_df.merge(self.df, on=["title", "vote_average"])
+        top_rated_movies = [self._row_to_movie(row) for _, row in merged_df.iterrows()]
+        return top_rated_movies
 
     def get_movies_per_year(self) -> pd.Series:
         """
@@ -58,8 +95,11 @@ class MovieDataset:
 
         :return: Series with years as index and number of movies as values.
         """
-        self.df['release_year'] = pd.to_datetime(self.df['release_date'], errors='coerce').dt.year
-        return self.df['release_year'].value_counts().sort_index()
+        self.df["release_year"] = pd.to_datetime(
+            self.df["release_date"], errors="coerce"
+        ).dt.year
+        movies_per_year = self.df["release_year"].value_counts().sort_index()
+        return movies_per_year
 
     def get_movies_per_genre(self) -> pd.Series:
         """
@@ -67,30 +107,21 @@ class MovieDataset:
 
         :return: Series with genres as index and number of movies as values.
         """
-        self.df['genres'] = self.df['genres'].apply(eval)  # Convert string representation of list of dicts to actual list of dicts
-        genres_exploded = self.df.explode('genres')
-        genres_exploded['genre'] = genres_exploded['genres'].apply(lambda x: x['name'] if isinstance(x, dict) else None)
-        return genres_exploded['genre'].value_counts()
+        self.df["genres"] = self.df["genres"].apply(
+            eval
+        )  # Convert string representation of list of dicts to actual list of dicts
+        genres_exploded_df = self.df.explode("genres")
+        genres_exploded_df["genre"] = genres_exploded_df["genres"].apply(
+            lambda x: x["name"] if isinstance(x, dict) else None
+        )
+        movies_per_genre = genres_exploded_df["genre"].value_counts()
+        return movies_per_genre
 
-    def save_to_json(self, json_file: str):
+    def save_to_json(self, output_file: str):
         """
         Save the dataset to a JSON file.
 
-        :param json_file: Path to the JSON file where the data will be saved.
+        :param output_file: Path to the output JSON file.
         """
-        self.df.to_json(json_file, orient='records', lines=True)
-        logging.info("Data saved to %s", json_file)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    dataset = MovieDataset('movies_metadata.csv')
-    print(f"Number of unique movies: {dataset.get_unique_movies_count()}")
-    print(f"Average rating of all movies: {dataset.get_average_rating()}")
-    print("Top 5 highest rated movies:")
-    print(dataset.get_top_rated_movies())
-    print("Number of movies released each year:")
-    print(dataset.get_movies_per_year())
-    print("Number of movies in each genre:")
-    print(dataset.get_movies_per_genre())
-    dataset.save_to_json('movies_metadata.json')
+        self.df.to_json(output_file, orient="records", lines=True)
+        logging.info(f"Data saved to {output_file}")
