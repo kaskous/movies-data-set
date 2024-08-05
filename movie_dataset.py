@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from typing import List
+from typing import Dict, List
 from movie import Movie
 
 
@@ -89,23 +89,25 @@ class MovieDataset:
         top_rated_movies = [self._row_to_movie(row) for _, row in merged_df.iterrows()]
         return top_rated_movies
 
-    def get_movies_per_year(self) -> pd.Series:
+    def get_movies_per_year(self) -> Dict[int, int]:
         """
         Return the number of movies released each year.
 
-        :return: Series with years as index and number of movies as values.
+        :return: Dictionary with years as keys and number of movies as values.
         """
         self.df["release_year"] = pd.to_datetime(
             self.df["release_date"], errors="coerce"
         ).dt.year
+        self.df = self.df.dropna(subset=["release_year"])
+        self.df["release_year"] = self.df["release_year"].astype(int)
         movies_per_year = self.df["release_year"].value_counts().sort_index()
-        return movies_per_year
+        return movies_per_year.to_dict()
 
-    def get_movies_per_genre(self) -> pd.Series:
+    def get_movies_per_genre(self) -> Dict[str, int]:
         """
         Return the number of movies in each genre.
 
-        :return: Series with genres as index and number of movies as values.
+        :return: Dictionary with genres as keys and number of movies as values.
         """
         self.df["genres"] = self.df["genres"].apply(
             eval
@@ -114,8 +116,9 @@ class MovieDataset:
         genres_exploded_df["genre"] = genres_exploded_df["genres"].apply(
             lambda x: x["name"] if isinstance(x, dict) else None
         )
-        movies_per_genre = genres_exploded_df["genre"].value_counts()
-        return movies_per_genre
+        movies_per_genre_series = genres_exploded_df["genre"].value_counts()
+        movies_per_genre_dict = movies_per_genre_series.to_dict()
+        return movies_per_genre_dict
 
     def save_to_json(self, output_file: str):
         """

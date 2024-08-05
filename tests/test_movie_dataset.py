@@ -37,17 +37,25 @@ class TestMovieDataset(unittest.TestCase):
 
     def test_movies_per_year(self):
         movies_per_year = self.dataset.get_movies_per_year()
+        self.assertIsInstance(movies_per_year, dict, "The result should be a dictionary")
         self.assertGreaterEqual(
             len(movies_per_year),
             1,
             "There should be movies released in at least one year",
         )
+        for year, count in movies_per_year.items():
+            self.assertIsInstance(year, int, "Year should be an integer")
+            self.assertIsInstance(count, int, "Movie count should be an integer")
 
     def test_movies_per_genre(self):
         movies_per_genre = self.dataset.get_movies_per_genre()
+        self.assertIsInstance(movies_per_genre, dict, "The result should be a dictionary")
         self.assertGreaterEqual(
             len(movies_per_genre), 1, "There should be at least one genre with movies"
         )
+        for genre, count in movies_per_genre.items():
+            self.assertIsInstance(genre, str, "Genre should be a string")
+            self.assertIsInstance(count, int, "Movie count should be an integer")
 
     def test_movie_parsing(self):
         first_movie = self.dataset._row_to_movie(self.dataset.df.iloc[0])
