@@ -87,7 +87,6 @@ class MovieDataset:
         """
         try:
             average_rating = self.df["vote_average"].mean()
-            logging.info(f"Average rating calculated: {average_rating}")
             return average_rating
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
@@ -104,7 +103,6 @@ class MovieDataset:
         """
         try:
             unique_count = self.df["title"].nunique()
-            logging.info(f"Number of unique movies: {unique_count}")
             return unique_count
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
