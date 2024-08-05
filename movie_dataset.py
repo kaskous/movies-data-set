@@ -1,7 +1,8 @@
 import pandas as pd
 import logging
-from typing import Dict, List
+from typing import Dict, List, Union
 from movie import Movie
+
 
 class MovieDataset:
     def __init__(self, file_path: str):
@@ -26,16 +27,21 @@ class MovieDataset:
             return df
         except FileNotFoundError:
             logging.exception(f"File {self.file_path} not found.")
-            raise
+            return pd.DataFrame()
+
         except pd.errors.EmptyDataError:
             logging.exception(f"File {self.file_path} is empty.")
-            raise
+            return pd.DataFrame()
+
         except pd.errors.ParserError:
             logging.exception(f"File {self.file_path} could not be parsed.")
-            raise
+            return pd.DataFrame()
+
         except Exception as e:
-            logging.exception(f"An unexpected error occurred while loading the file: {e}")
-            raise
+            logging.exception(
+                f"An unexpected error occurred while loading the file: {e}"
+            )
+            return pd.DataFrame()
 
     def _row_to_movie(self, row: pd.Series) -> Movie:
         """
@@ -55,10 +61,10 @@ class MovieDataset:
             return movie
         except KeyError as e:
             logging.exception(f"Missing key in data row: {e}")
-            raise
+
         except Exception as e:
             logging.exception(f"Error converting row to Movie: {e}")
-            raise
+
 
     def _parse_genres(self, genres_str: str) -> List[str]:
         """
@@ -90,10 +96,10 @@ class MovieDataset:
             return average_rating
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
-            raise
+            return 0.0
         except Exception as e:
             logging.exception(f"Error calculating average rating: {e}")
-            raise
+            return 0.0
 
     def get_unique_movies_count(self) -> int:
         """
@@ -106,10 +112,11 @@ class MovieDataset:
             return unique_count
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
-            raise
+            return 0
+
         except Exception as e:
             logging.exception(f"Error counting unique movies: {e}")
-            raise
+            return 0
 
     def get_top_rated_movies(self, top_n: int = 5) -> List[Movie]:
         """
@@ -124,15 +131,18 @@ class MovieDataset:
             )
             top_rated_df = sorted_df.head(top_n)
             merged_df = top_rated_df.merge(self.df, on=["title", "vote_average"])
-            top_rated_movies = [self._row_to_movie(row) for _, row in merged_df.iterrows()]
+            top_rated_movies = [
+                self._row_to_movie(row) for _, row in merged_df.iterrows()
+            ]
             logging.info(f"Top {top_n} rated movies retrieved.")
             return top_rated_movies
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
-            raise
+            return []
+
         except Exception as e:
             logging.exception(f"Error retrieving top rated movies: {e}")
-            raise
+            return []
 
     def get_movies_per_year(self) -> Dict[int, int]:
         """
@@ -151,10 +161,11 @@ class MovieDataset:
             return movies_per_year.to_dict()
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
-            raise
+            return {}
+
         except Exception as e:
             logging.exception(f"Error calculating movies per year: {e}")
-            raise
+            return {}
 
     def get_movies_per_genre(self) -> Dict[str, int]:
         """
@@ -174,10 +185,11 @@ class MovieDataset:
             return movies_per_genre_dict
         except KeyError as e:
             logging.exception(f"Missing key in data: {e}")
-            raise
+            return {}
+
         except Exception as e:
             logging.exception(f"Error calculating movies per genre: {e}")
-            raise
+            return {}
 
     def save_to_json(self, output_file: str):
         """
@@ -190,4 +202,3 @@ class MovieDataset:
             logging.info(f"Data saved to {output_file}")
         except Exception as e:
             logging.exception(f"Error saving data to JSON: {e}")
-            raise
